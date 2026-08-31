@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL with PostGIS Spatial Extensions
+  postgres_postgis:
+    image: postgis/postgis:15-3.3
+    container_name: traffic_postgis
+    environment:
+      POSTGRES_USER: traffic_user
+      POSTGRES_PASSWORD: traffic_secure_password
+      POSTGRES_DB: smart_traffic_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traffic_user -d smart_traffic_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - traffic_net
+
+  # 2. Redis Streams Event Bus & Ingestion Queue
+  redis_queue:
+    image: redis:7-alpine
+    container_name: traffic_redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - traffic_net
+
+  # 3. FastAPI Core Backend & ML Parallel Ingestion
+  fastapi_backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: traffic_fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://traffic_user:traffic_secure_password@postgres_postgis:5432/smart_traffic_db
+      REDIS_URL: redis://redis_queue:6379/0
+      PYTHONUNBUFFERED: "1"
+    depends_on:
+      postgres_postgis:
+        condition: service_healthy
+      redis_queue:
+        condition: service_started
+    volumes:
+      - ./backend:/app/backend
+      - ./ml:/app/ml
+      - ./weights:/app/weights
+    networks:
+      - traffic_net
+
+  # 4. React + Leaflet GIS Frontend Dashboard
+  frontend_dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: traffic_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - fastapi_backend
+    networks:
+      - traffic_net
+
+volumes:
+  postgis_data:
+  redis_data:
+
+networks:
+  traffic_net:
+    driver: bridge

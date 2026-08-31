@@ -1,0 +1,7 @@
+{
+  "name": "India Smart Traffic Monitoring & ITS Command Centre",
+  "description": "AI-Powered Smart Traffic Management & ICCC for Indian Cities (Delhi-NCR Corridor, NHAI, MoRTH) featuring HSRP ANPR, Road Surface Defect Detection, and Real-Time GIS Incident Dispatch.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
